@@ -1,20 +1,18 @@
-# move all files to a temporary folder
-# except for the ones with same names
+# [ ] Move all files to a temporary folder except for the ones with same names
 #
-# give a promt ot the user with all the files and options:
-#   A) if they are the same:
+# [ ] Give a promt ot the user with all the files and options:
+# [ ] A) if they are the same:
 #       1) choose which one to keep, and delete the rest;
 #       2) choose to keep all, and rename all except for one as copies;
 #       3) choose which one to keep, which to rename, and which to delete;
 #       4) choose to delete all (with a warning);
-#   B) if they are different:
+# [ ] B) if they are different:
 #       1) choose to keep all, add their differences to names and rename copies;
 #       2) choose to keep only unique ones and add their differences to names;
 #       3) choose which one to keep, which to rename, and which to delete;
 #       4) choose to delete all (with a warning);
 #
-# save info about moved files (for undo and general restoring purposes)
-# .
+# [ ] Save info about moved files (for general restoring purposes)
 
 
 import os, sys, shutil, hashlib
@@ -116,29 +114,16 @@ def init_testing_dirs() -> None:
       
 def get_filepath(file: File | FilePtr) -> str:
     return os.sep + file.name if file.dir == None else file.dir + os.sep + file.name
-    # if file.dir == None:
-    #     return os.sep + file.name
-    # return file.dir + os.sep + file.name
 
 def get_rel_dir(file: File | FilePtr, parent_path: str) -> str:
     return parent_path if file.dir == None else file.dir.removeprefix(parent_path)
-    # if file.dir == None:
-    #     return parent_path
-    # return file.dir.removeprefix(parent_path)
 
 def get_rel_filepath(file: File | FilePtr, parent_path: str) -> str:
     return os.sep + file.name if file.dir == None else file.dir.removeprefix(parent_path) + os.sep + file.name
-    # if file.dir == None:
-    #     return os.sep + file.name
-    # return file.dir.removeprefix(parent_path) + os.sep + file.name
 
 def get_extension(file_name: str) -> str:
     tokens = file_name.split('.')
     return tokens[len(tokens)-1] if len(tokens) > 1 else None
-    # if len(tokens) > 1:
-    #     return tokens[len(tokens)-1]
-    # else:
-    #     return None
 
 def is_image(file_name: str) -> bool:
     extension = get_extension(file_name)
@@ -160,9 +145,7 @@ def copy_file(source: File | FilePtr, target: File | FilePtr) -> None:
     assert len(target.dir ) > 0, '[ERROR]: The target directory should be provided'
     assert len(source.name) > 0, '[ERROR]: The source name' + ' should be provided'
     assert len(target.name) > 0, '[ERROR]: The target name' + ' should be provided'
-
     mkdir(target.dir)
-
     try:
         shutil.copyfile(get_filepath(source), get_filepath(target))
         info.append((source, target))
@@ -179,7 +162,6 @@ def recursive_get_dir_images(dir: str):
 
 def recursive_print_dir_images(dir: str) -> None:
     images = recursive_get_dir_images(dir)
-
     for img in images:
         print(f"[INFO]: Found image '{img.name}' inside '{img.dir}'")
 
@@ -208,8 +190,7 @@ def get_dir_info(dir: str) -> str:
 def find_copies(file: File, source_dir: str) -> int:
     copies_counter = 0
     for info_entry in info:
-        source = info_entry[0]
-        # first element is the source file in the entry 
+        source = info_entry[0] # first element is the source file in the entry 
         # TODO: refactor 'info' to be a named tuple or smth like that
         # so that you can actually see what is stored in 'info'
         if file.hash == source.hash:
@@ -226,27 +207,18 @@ def process_files(input_dirs: tuple):
             
             if copies_counter > 0:
                 if arg_delete_copies: info.append((img, FilePtr("", DELETED)))
-                else: copy_file(   img, FilePtr(arg_output_dir, img.name[:-4] + f'_copy({copies_counter})' + img.name[-4:]))
-            else: copy_file(       img, FilePtr(arg_output_dir, img.name))
+                else: copy_file(img, FilePtr(arg_output_dir, img.name[:-4] + f'_copy({copies_counter})' + img.name[-4:]))
+            else: copy_file(    img, FilePtr(arg_output_dir, img.name))
         
         save_info(arg_info_location, input_dir)
         print(f"[INFO]: Info file contents:\n'{get_dir_info(arg_info_location)}'")    
 
-
 def __init__() -> None:   
     global arg_input_dirs, arg_output_dir, arg_info_location, arg_delete_copies
-
     parse_arguments()
     init_testing_dirs()
-
-    # arg_input_dirs    = (INPUT_PATH,)
-    arg_output_dir    = OUTPUT_PATH
-    arg_info_location = OUTPUT_PATH
-    
+    arg_info_location = OUTPUT_PATH # TODO: temporary
     process_files(arg_input_dirs)
-
-
-
 
 if __name__ == "__main__":
     __init__()
