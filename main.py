@@ -15,7 +15,7 @@
 # [ ] Save info about moved files (for general restoring purposes)
 
 
-import os, sys, shutil, hashlib
+import os, sys, shutil, hashlib, sdl2.ext
 
 WORKING_DIR = 'D:' + os.sep + 'photo organiser'
 INFO_FILE   =        os.sep + 'info.txt'
@@ -29,20 +29,24 @@ COPIES_PATH  = OUTPUT_PATH + os.sep + 'copies'
 DELETED = '[DELETED]'
 UNKNOWN = '[UNKNOWN]'
 
+WINDOW_WIDTH, WINDOW_HEIGHT = 1600, 900
+
 arg_input_dirs    = []
 arg_output_dir    = ""
 arg_info_location = ""
 arg_delete_copies = False
 
-info = []
+info           = []
 dir_info_start = 0
 # TODO: maybe rename 'info'?
 
-class File:
-    dir : str # absolute path
-    name: str
-    hash: str 
+window:         sdl2.ext.Window
+factory:        sdl2.ext.SpriteFactory
+uifactory:      sdl2.ext.UIFactory
+spriterenderer: sdl2.ext.SoftwareSpriteRenderSystem
+uiprocessor:    sdl2.ext.UIProcessor
 
+class File:
     def __init__(self, dir: str, name: str) -> None:
         self.dir  = dir
         self.name = name
@@ -50,9 +54,6 @@ class File:
             self.hash = hashlib.file_digest(f, "sha256").hexdigest()
 
 class FilePtr:
-    dir : str
-    name: str
-
     def __init__(self, dir: str, name: str) -> None:
         self.dir  = dir
         self.name = name
@@ -111,7 +112,34 @@ def init_testing_dirs() -> None:
     except:
         print("[ERROR]: Couldn't initialise folders for some reason")
         exit(1)
-      
+
+def init_graphics() -> None:
+    global window, factory, uifactory, spriterenderer, uiprocessor
+    sdl2.ext.init()
+    
+    window         = sdl2.ext.Window("Photo organiser", size=(WINDOW_WIDTH, WINDOW_HEIGHT))
+    factory        = sdl2.ext.SpriteFactory(sdl2.ext.SOFTWARE)
+    uifactory      = sdl2.ext.UIFactory(factory)
+    spriterenderer = factory.create_sprite_render_system(window)
+    uiprocessor    = sdl2.ext.UIProcessor()
+
+    window.show()
+
+    sample_rect = uifactory.from_color(sdl2.ext.BUTTON, sdl2.ext.argb_to_color(0x4080FF), (100, 100))
+    sample_rect.position = (200, 200)
+
+    running = True
+    while running:
+        for event in sdl2.ext.get_events():
+            if event.type == sdl2.SDL_QUIT:
+                running = False
+                break
+            
+            # uiprocessor.dispatch( ... , event)
+            sdl2.ext.fill(window.get_surface(), sdl2.ext.argb_to_color(0x323232))
+            spriterenderer.render(sample_rect)
+        sdl2.SDL_Delay(50)
+
 def get_filepath(file: File | FilePtr) -> str:
     return os.sep + file.name if file.dir == None else file.dir + os.sep + file.name
 
@@ -214,11 +242,14 @@ def process_files(input_dirs: tuple):
         print(f"[INFO]: Info file contents:\n'{get_dir_info(arg_info_location)}'")    
 
 def __init__() -> None:   
+    init_graphics()
+    print("escaped from init_graphics()")
+    exit(0)
     global arg_input_dirs, arg_output_dir, arg_info_location, arg_delete_copies
     parse_arguments()
     init_testing_dirs()
     arg_info_location = OUTPUT_PATH # TODO: temporary
-    process_files(arg_input_dirs)
+    # process_files(arg_input_dirs)
 
 if __name__ == "__main__":
     __init__()
