@@ -15,7 +15,7 @@
 # [ ] Save info about moved files (for general restoring purposes)
 
 
-import os, sys, shutil, hashlib, sdl2.ext
+import os, sys, shutil, hashlib, random, sdl2, sdl2.ext
 
 WORKING_DIR = 'D:' + os.sep + 'photo organiser'
 INFO_FILE   =        os.sep + 'info.txt'
@@ -30,6 +30,11 @@ DELETED = '[DELETED]'
 UNKNOWN = '[UNKNOWN]'
 
 WINDOW_WIDTH, WINDOW_HEIGHT = 1600, 900
+COLOR_BACKGROUND    = 0x323232
+COLOR_LIGHTBLUE     = 0x4269FF
+COLOR_BUTTON_IDLE   = COLOR_LIGHTBLUE
+COLOR_BUTTON_HOVER  = COLOR_LIGHTBLUE + 0x111100
+COLOR_BUTTON_PRESSED = COLOR_LIGHTBLUE + 0x424200
 
 arg_input_dirs    = []
 arg_output_dir    = ""
@@ -45,6 +50,8 @@ factory:        sdl2.ext.SpriteFactory
 uifactory:      sdl2.ext.UIFactory
 spriterenderer: sdl2.ext.SoftwareSpriteRenderSystem
 uiprocessor:    sdl2.ext.UIProcessor
+sprites:        tuple = ()
+ui_elements:    tuple = ()
 
 class File:
     def __init__(self, dir: str, name: str) -> None:
@@ -114,31 +121,73 @@ def init_testing_dirs() -> None:
         exit(1)
 
 def init_graphics() -> None:
-    global window, factory, uifactory, spriterenderer, uiprocessor
     sdl2.ext.init()
-    
+    global window, factory, uifactory, spriterenderer, uiprocessor, sprites
     window         = sdl2.ext.Window("Photo organiser", size=(WINDOW_WIDTH, WINDOW_HEIGHT))
     factory        = sdl2.ext.SpriteFactory(sdl2.ext.SOFTWARE)
-    uifactory      = sdl2.ext.UIFactory(factory)
     spriterenderer = factory.create_sprite_render_system(window)
+    uifactory      = sdl2.ext.UIFactory(factory)
     uiprocessor    = sdl2.ext.UIProcessor()
-
+    sprites        = (factory.from_color(sdl2.ext.argb_to_color(COLOR_BACKGROUND), (WINDOW_WIDTH, WINDOW_HEIGHT)),)
     window.show()
 
-    sample_rect = uifactory.from_color(sdl2.ext.BUTTON, sdl2.ext.argb_to_color(0x4080FF), (100, 100))
-    sample_rect.position = (200, 200)
+def init_main_menu() -> None:
+    offset = 20
+    rect_add(offset, WINDOW_HEIGHT - offset - 50, WINDOW_WIDTH - offset * 2, 50, COLOR_LIGHTBLUE) # sample rect at the bottom
+    button_add(100, 100, 100, 100, 0x7FFF7F, sdl2.ext.BUTTON)
 
-    running = True
-    while running:
-        for event in sdl2.ext.get_events():
-            if event.type == sdl2.SDL_QUIT:
-                running = False
-                break
-            
-            # uiprocessor.dispatch( ... , event)
-            sdl2.ext.fill(window.get_surface(), sdl2.ext.argb_to_color(0x323232))
-            spriterenderer.render(sample_rect)
-        sdl2.SDL_Delay(50)
+def rect_add(x: int, y: int, w: int, h: int, color: int) -> None:
+    global window, sprites
+    rect          = factory.from_color(sdl2.ext.argb_to_color(color), (w, h))
+    rect.position = (x, y)
+    sprites      += (rect,)
+
+def button_add(x: int, y: int, w: int, h: int, color: int, type: int) -> None:
+    global window, ui_elements
+    button          = uifactory.from_color(type, sdl2.ext.argb_to_color(color), (w, h))
+    button.position = (x, y)
+    # button.click   += button_onclick
+    # button.motion  += button_onmotion
+
+    button.click += button_onclick 
+
+    ui_elements    += (button,)
+
+def sprite_move(sprite: sdl2.ext.SoftwareSprite, x: int, y: int) -> None:
+    (px, py) = sprite.position
+    sprite.position = (px + x, py + y)
+
+def sprite_set_pos(sprite: sdl2.ext.SoftwareSprite, x: int, y: int) -> None:
+    sprite.position = (x, y)
+
+def sprite_set_color(sprite: sdl2.ext.SoftwareSprite, color: int) -> None:
+    sdl2.surface.SDL_FillRect(sprite.surface, None, color)
+
+def button_onclick(button, event: sdl2.SDL_Event) -> None:
+    sprite_set_pos(button, random.randint(0, WINDOW_WIDTH), random.randint(0, WINDOW_HEIGHT))
+#     sprite_set_color(button, COLOR_BUTTON_ACTIVE)
+
+# def button_onmotion(button: sdl2.ext.SoftwareSprite, event: sdl2.SDL_Event) -> None:
+#     sprite_set_color(button, COLOR_BUTTON_HOVER)
+
+def button_update(button: sdl2.ext.SoftwareSprite) -> None:
+    if button.state & sdl2.ext.HOVERED:
+        if button.state & sdl2.ext.PRESSED:
+            sprite_set_color(button, COLOR_BUTTON_PRESSED)
+        else:
+            sprite_set_color(button, COLOR_BUTTON_HOVER)
+    else:
+        sprite_set_color(button, COLOR_BUTTON_IDLE)
+        button.state &= ~sdl2.ext.PRESSED
+
+    # short version
+    # sprite_set_color(button, (COLOR_BUTTON_PRESSED if button.state & sdl2.ext.PRESSED else COLOR_BUTTON_HOVER) if button.state & sdl2.ext.HOVERED else COLOR_BUTTON_IDLE)
+
+def ui_state_update() -> None:
+    global ui_elements
+    for ui_element in ui_elements:
+        if ui_element.uitype & sdl2.ext.BUTTON:
+            button_update(ui_element)
 
 def get_filepath(file: File | FilePtr) -> str:
     return os.sep + file.name if file.dir == None else file.dir + os.sep + file.name
@@ -241,14 +290,33 @@ def process_files(input_dirs: tuple):
         save_info(arg_info_location, input_dir)
         print(f"[INFO]: Info file contents:\n'{get_dir_info(arg_info_location)}'")    
 
+def process_events() -> bool:
+    for event in sdl2.ext.get_events():
+        if event.type == sdl2.SDL_QUIT: return False
+        if event.type == sdl2.SDL_KEYDOWN:
+            key = event.key.keysym.key
+            if key == sdl2.SDLK_q: return False
+
+        uiprocessor.dispatch(ui_elements, event)
+    return True
+
+def main_loop() -> None:
+    running = True
+    while running:
+        running = process_events()
+        ui_state_update()
+        spriterenderer.render(sprites + ui_elements)
+        sdl2.SDL_Delay(10)
+    
+
 def __init__() -> None:   
-    init_graphics()
-    print("escaped from init_graphics()")
-    exit(0)
-    global arg_input_dirs, arg_output_dir, arg_info_location, arg_delete_copies
-    parse_arguments()
+    global arg_input_dirs, arg_output_dir, arg_info_location, arg_delete_copies, window, spriterenderer, sprites
     init_testing_dirs()
+    init_graphics()
     arg_info_location = OUTPUT_PATH # TODO: temporary
+    init_main_menu()
+
+    main_loop()
     # process_files(arg_input_dirs)
 
 if __name__ == "__main__":
